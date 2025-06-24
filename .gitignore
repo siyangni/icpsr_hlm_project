@@ -1,0 +1,5 @@
+# Exclude data folder
+data/
+
+# Exclude old scripts folder
+old_scripts/ 
