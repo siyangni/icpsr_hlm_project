@@ -290,6 +290,12 @@ df <- df %>%
 df <- df %>% 
   mutate(lbc = ifelse(LBC1==1, 0, 1))
 
+# Add a variable lbc0 where recode LBC1 so that 1 is recoded to 0, 2 and 3 is recoded to 1, 4 is recoded to 2
+df <- df %>% 
+  mutate(lbc0 = case_when(LBC1 == 1 ~ 0,
+                          LBC1 == 2 | LBC1 == 3 ~ 1,
+                          LBC1 == 4 ~ 2))
+
 # Add a variable lbc1 where recode LBC1 from 1, 2, 3, 4 to 0, 1, 2, 3
 df <- df %>% 
   mutate(lbc1 = case_when(LBC1 == 1 ~ 0,
@@ -331,7 +337,7 @@ cat("=== VALIDATION CHECKS ===\n")
 cat("Sample size:", nrow(df), "\n\n")
 
 # Check key variables
-variables_to_check <- c("gender", "age", "lbc", "delinquency", "apc", "ats", "atp", 
+variables_to_check <- c("gender", "age", "lbc", "lbc1", "lbc0", "delinquency", "apc", "ats", "atp", 
                        "fses", "sne", "nle", "delinf", "bcv", "ica", "sceg", 
                        "mgb", "stegb", "ltegb", "vbs", "nrwa", "nrws", "nrwp", "pf", "np")
 

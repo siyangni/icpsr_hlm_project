@@ -3,3 +3,8 @@ data/
 
 # Exclude old scripts folder
 old_scripts/ 
+
+# Ignore file types
+*.txt
+*.rds
+*.csv 

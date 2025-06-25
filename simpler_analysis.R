@@ -1,8 +1,8 @@
 # ===============================================================================
-# Three-Level Hierarchical Negative Binomial Regression Analysis
+# Three-Level Hierarchical Negative Binomial Regression Analysis (Simplified)
 # ICP-H Project
 # 
-# Level 1: Individual (with interaction effects)
+# Level 1: Individual (main effects only, no interactions)
 # Level 2: School (random intercept only)
 # Level 3: Area (random intercept only)
 # ===============================================================================
@@ -90,28 +90,21 @@ df_model <- df_model %>%
 # MODEL SPECIFICATION
 # ===============================================================================
 
-# Level 1 fixed effects (from ch4_regression.R lines 103-107 plus interactions)
+# Level 1 fixed effects (main effects only - no interactions)
 # Base model: mgb + stegb + ltegb + vbs + nrwa + nrws + nrwp + pf + np + 
 #             nle + sne + apc + ats + atp + D45 + D47 + bcv + ica + delinf + 
 #             fses + age + gender + lbc1
-# 
-# Interaction effects: lbc1 * (mgb, stegb, ltegb, vbs, nrwa, nrwp, pf, np, nle)
 
-formula_base <- "delinquency ~ mgb + stegb + ltegb + vbs + nrwa + nrws + nrwp + pf + np + 
+formula_main <- "delinquency ~ mgb + stegb + ltegb + vbs + nrwa + nrws + nrwp + pf + np + 
                  nle + sne + apc + ats + atp + D45 + D47 + bcv + ica + delinf + 
                  fses + age + gender + lbc1"
 
-# Add interaction terms
-formula_interactions <- paste0(formula_base, " + ",
-                              "lbc1:mgb + lbc1:stegb + lbc1:ltegb + lbc1:vbs + ",
-                              "lbc1:nrwa + lbc1:nrwp + lbc1:pf + lbc1:np + lbc1:nle")
-
 # Add random effects for three-level structure
-formula_full <- paste0(formula_interactions, " + (1|area/school)")
+formula_full <- paste0(formula_main, " + (1|area/school)")
 
 cat("=== MODEL FORMULA ===\n")
-cat("Fixed effects with interactions:\n")
-cat(formula_interactions, "\n\n")
+cat("Fixed effects (main effects only):\n")
+cat(formula_main, "\n\n")
 cat("Full three-level model:\n") 
 cat(formula_full, "\n\n")
 
@@ -119,11 +112,11 @@ cat(formula_full, "\n\n")
 # FIT HIERARCHICAL NEGATIVE BINOMIAL MODEL
 # ===============================================================================
 
-cat("=== FITTING THREE-LEVEL NEGATIVE BINOMIAL MODEL ===\n")
+cat("=== FITTING THREE-LEVEL NEGATIVE BINOMIAL MODEL (SIMPLIFIED) ===\n")
 cat("This may take several minutes...\n\n")
 
 # Fit the three-level negative binomial model using glmmTMB
-model_3level <- glmmTMB(
+model_3level_simple <- glmmTMB(
   formula = as.formula(formula_full),
   data = df_model,
   family = nbinom2(),
@@ -132,7 +125,7 @@ model_3level <- glmmTMB(
 
 # Model summary
 cat("=== MODEL SUMMARY ===\n")
-summary(model_3level)
+summary(model_3level_simple)
 cat("\n")
 
 # ===============================================================================
@@ -142,7 +135,7 @@ cat("\n")
 cat("=== MODEL DIAGNOSTICS ===\n")
 
 # Check convergence
-if(model_3level$fit$convergence == 0) {
+if(model_3level_simple$fit$convergence == 0) {
   cat("✓ Model converged successfully\n")
 } else {
   cat("⚠ Warning: Model convergence issues\n")
@@ -150,13 +143,13 @@ if(model_3level$fit$convergence == 0) {
 
 # Model fit statistics
 cat("\nModel fit statistics:\n")
-cat("AIC:", AIC(model_3level), "\n")
-cat("BIC:", BIC(model_3level), "\n")
-cat("Log-likelihood:", logLik(model_3level), "\n")
+cat("AIC:", AIC(model_3level_simple), "\n")
+cat("BIC:", BIC(model_3level_simple), "\n")
+cat("Log-likelihood:", logLik(model_3level_simple), "\n")
 
 # Random effects summary
 cat("\n=== RANDOM EFFECTS ===\n")
-random_effects <- summary(model_3level)$varcor
+random_effects <- summary(model_3level_simple)$varcor
 print(random_effects)
 
 # Calculate ICC
@@ -180,7 +173,7 @@ cat("ICC Combined (Levels 2+3):", round((var_area + var_school) / total_var, 4),
 cat("\n=== FIXED EFFECTS RESULTS ===\n")
 
 # Extract fixed effects
-fixed_effects <- broom.mixed::tidy(model_3level, effects = "fixed")
+fixed_effects <- broom.mixed::tidy(model_3level_simple, effects = "fixed")
 print(fixed_effects)
 
 # Exponentiate coefficients for interpretation (incident rate ratios)
@@ -197,30 +190,23 @@ print(fixed_effects_exp %>%
       mutate(across(c(IRR, IRR_lower, IRR_upper), ~round(.x, 3))))
 
 # ===============================================================================
-# INTERACTION EFFECTS ANALYSIS
+# MAIN EFFECTS ANALYSIS
 # ===============================================================================
 
-cat("\n=== INTERACTION EFFECTS ANALYSIS ===\n")
+cat("\n=== MAIN EFFECTS ANALYSIS ===\n")
 
-# Extract interaction terms
-interaction_terms <- fixed_effects_exp %>%
-  filter(grepl("lbc1.*:", term)) %>%
+# Extract significant main effects
+significant_effects <- fixed_effects_exp %>%
+  filter(p.value < 0.05 & term != "(Intercept)") %>%
   arrange(p.value)
 
-cat("Significant interaction effects (p < 0.05):\n")
-significant_interactions <- interaction_terms %>%
-  filter(p.value < 0.05)
-
-if(nrow(significant_interactions) > 0) {
-  print(significant_interactions %>% 
+cat("Significant main effects (p < 0.05):\n")
+if(nrow(significant_effects) > 0) {
+  print(significant_effects %>% 
         select(term, IRR, IRR_lower, IRR_upper, p.value))
 } else {
-  cat("No significant interaction effects found.\n")
+  cat("No significant main effects found.\n")
 }
-
-cat("\nAll interaction effects:\n")
-print(interaction_terms %>% 
-      select(term, IRR, IRR_lower, IRR_upper, p.value))
 
 # ===============================================================================
 # COMPARISON WITH SINGLE-LEVEL MODEL
@@ -229,18 +215,18 @@ print(interaction_terms %>%
 cat("\n=== COMPARISON WITH SINGLE-LEVEL MODEL ===\n")
 
 # Fit single-level negative binomial model for comparison
-model_1level <- glmmTMB(
-  formula = as.formula(formula_interactions),
+model_1level_simple <- glmmTMB(
+  formula = as.formula(formula_main),
   data = df_model,
   family = nbinom2()
 )
 
-cat("Single-level model AIC:", AIC(model_1level), "\n")
-cat("Three-level model AIC:", AIC(model_3level), "\n")
-cat("AIC improvement:", AIC(model_1level) - AIC(model_3level), "\n")
+cat("Single-level model AIC:", AIC(model_1level_simple), "\n")
+cat("Three-level model AIC:", AIC(model_3level_simple), "\n")
+cat("AIC improvement:", AIC(model_1level_simple) - AIC(model_3level_simple), "\n")
 
 # Likelihood ratio test
-lrt_result <- anova(model_1level, model_3level)
+lrt_result <- anova(model_1level_simple, model_3level_simple)
 print(lrt_result)
 
 # ===============================================================================
@@ -250,19 +236,19 @@ print(lrt_result)
 cat("\n=== SAVING RESULTS ===\n")
 
 # Save model object
-saveRDS(model_3level, "model_3level_nb.rds")
+saveRDS(model_3level_simple, "model_3level_nb_simple.rds")
 
 # Save fixed effects results
-write_csv(fixed_effects_exp, "fixed_effects_results.csv")
+write_csv(fixed_effects_exp, "fixed_effects_results_simple.csv")
 
 # Save model summary
-sink("model_summary.txt")
-cat("Three-Level Hierarchical Negative Binomial Regression Results\n")
-cat("============================================================\n\n")
+sink("model_summary_simple.txt")
+cat("Three-Level Hierarchical Negative Binomial Regression Results (Simplified)\n")
+cat("=======================================================================\n\n")
 cat("Sample size:", nrow(df_model), "\n")
 cat("Number of areas:", length(unique(df_model$area)), "\n")
 cat("Number of schools:", length(unique(df_model$school)), "\n\n")
-summary(model_3level)
+summary(model_3level_simple)
 cat("\n\nIntraclass Correlations:\n")
 cat("ICC Area (Level 3):", round(icc_area, 4), "\n")
 cat("ICC School (Level 2):", round(icc_school, 4), "\n")
@@ -270,8 +256,8 @@ cat("ICC Combined (Levels 2+3):", round((var_area + var_school) / total_var, 4),
 sink()
 
 cat("Results saved:\n")
-cat("- Model object: model_3level_nb.rds\n")
-cat("- Fixed effects: fixed_effects_results.csv\n") 
-cat("- Full summary: model_summary.txt\n")
+cat("- Model object: model_3level_nb_simple.rds\n")
+cat("- Fixed effects: fixed_effects_results_simple.csv\n") 
+cat("- Full summary: model_summary_simple.txt\n")
 
-cat("\n=== ANALYSIS COMPLETE ===\n")
+cat("\n=== SIMPLIFIED ANALYSIS COMPLETE ===\n") 
