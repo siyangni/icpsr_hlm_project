@@ -290,6 +290,13 @@ df <- df %>%
 df <- df %>% 
   mutate(lbc = ifelse(LBC1==1, 0, 1))
 
+# Add a variable lbc1 where recode LBC1 from 1, 2, 3, 4 to 0, 1, 2, 3
+df <- df %>% 
+  mutate(lbc1 = case_when(LBC1 == 1 ~ 0,
+                          LBC1 == 2 ~ 1,
+                          LBC1 == 3 ~ 2,
+                          LBC1 == 4 ~ 3))
+
 # ===============================================================================
 # STEP 13: Add age and gender variables (from add_age_gender.R)
 # ===============================================================================
@@ -301,12 +308,19 @@ df <- df %>%
 # Creating variable age based on A3
 # Converting A3 to character vectors and assign it to a3
 a3 <- as.character(df$A3)
-# Assign every cell 01 as the date 
-bday <- as.Date(as.yearmon(a3, "%Y%m"))
-# The questionaire is filled in 2017, 3 years away from now
-age <- floor(age_calc(na.omit(bday), units = "years") - 3)
-# Adding variabel age
-df$age[!is.na(df$A3)] <- age
+
+# Extract birth year from A3
+# For YYYYMM format, extract first 4 characters
+# For YYYY format (2002, 2003), use the whole value
+birth_year <- ifelse(nchar(a3) == 6, 
+                     as.numeric(substr(a3, 1, 4)),
+                     as.numeric(a3))
+
+# Calculate age: questionnaire year (2017) minus birth year
+age <- 2017 - birth_year
+
+# Adding variable age to dataframe
+df$age <- age
 
 # ===============================================================================
 # VALIDATION CHECKS
@@ -329,3 +343,8 @@ for(var in variables_to_check) {
   }
 }
 
+# ===============================================================================
+# Save the processed data
+# ===============================================================================
+
+write_csv(df, "data/processed.csv")
